@@ -1,24 +1,27 @@
 import Foundation
 import Logging
-import struct Logging.Logger
 import os
 
+//@available(macOS 11.0, *)
+@available(macOS 11.0, *)
 public struct LoggingOSLog: LogHandler {
-    public var logLevel: Logger.Level = .info
+    public var logLevel: Logging.Logger.Level = .info
     public let label: String
-    private let oslogger: OSLog
-    
+    private let oslogger: os.Logger
+
     public init(label: String) {
         self.label = label
-        self.oslogger = OSLog(subsystem: label, category: "")
+        self.oslogger = os.Logger(subsystem: label, category: "")
     }
 
-    public init(label: String, log: OSLog) {
+    public init(label: String, log: os.Logger) {
         self.label = label
         self.oslogger = log
     }
     
-    public func log(level: Logger.Level, message: Logger.Message, metadata: Logger.Metadata?, file: String, function: String, line: UInt) {
+//    @available(macOS 11.0, *)
+    mutating func log(level: Logging.Logger.Level, message: Logging.Logger.Message, metadata: Logging.Logger.Metadata?, source: String, file: String,
+                      function: String, line: UInt) {
         var combinedPrettyMetadata = self.prettyMetadata
         if let metadataOverride = metadata, !metadataOverride.isEmpty {
             combinedPrettyMetadata = self.prettify(
@@ -29,12 +32,12 @@ public struct LoggingOSLog: LogHandler {
         }
         
         var formedMessage = message.description
-        if combinedPrettyMetadata != nil {
-            formedMessage += " -- " + combinedPrettyMetadata!
+        if let combinedPrettyMetadata = combinedPrettyMetadata {
+            formedMessage += " -- " + combinedPrettyMetadata
         }
-        os_log("%{public}@", log: self.oslogger, type: OSLogType.from(loggerLevel: level), formedMessage as NSString)
+        self.oslogger.log(level: OSLogType.from(loggerLevel: level), "\(formedMessage)")
     }
-    
+
     private var prettyMetadata: String?
     public var metadata = Logger.Metadata() {
         didSet {
@@ -45,7 +48,7 @@ public struct LoggingOSLog: LogHandler {
     /// Add, remove, or change the logging metadata.
     /// - parameters:
     ///    - metadataKey: the key for the metadata item.
-    public subscript(metadataKey metadataKey: String) -> Logger.Metadata.Value? {
+    public subscript(metadataKey metadataKey: String) -> Logging.Logger.Metadata.Value? {
         get {
             return self.metadata[metadataKey]
         }
@@ -54,7 +57,7 @@ public struct LoggingOSLog: LogHandler {
         }
     }
     
-    private func prettify(_ metadata: Logger.Metadata) -> String? {
+    private func prettify(_ metadata: Logging.Logger.Metadata) -> String? {
         if metadata.isEmpty {
             return nil
         }
@@ -65,7 +68,7 @@ public struct LoggingOSLog: LogHandler {
 }
 
 extension OSLogType {
-    static func from(loggerLevel: Logger.Level) -> Self {
+    static func from(loggerLevel: Logging.Logger.Level) -> Self {
         switch loggerLevel {
         case .trace:
             /// `OSLog` doesn't have `trace`, so use `debug`
